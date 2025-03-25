@@ -1,0 +1,466 @@
+local flashbacklength = 60
+local flashbackspeed = 1
+local walkSpeed = 16
+local jumpPower = 50
+local playbackSpeed = 1.0
+
+local LP = game:GetService("Players").LocalPlayer
+local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local frames = {}
+
+-- Centered startup popup
+local function showStartupPopup()
+    local popupGui = Instance.new("ScreenGui")
+    popupGui.Name = "StartupPopup"
+    popupGui.ResetOnSpawn = false
+    popupGui.Parent = LP:WaitForChild("PlayerGui")
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 100)
+    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 1
+    frame.Parent = popupGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = frame
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Text = "Made by Branson06 on Discord"
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.Position = UDim2.new(0, 0, 0, 0)
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 20
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextTransparency = 1
+    textLabel.Parent = frame
+
+    -- Fade in
+    TS:Create(frame, TweenInfo.new(1), {BackgroundTransparency = 0}):Play()
+    TS:Create(textLabel, TweenInfo.new(1), {TextTransparency = 0}):Play()
+    
+    wait(3)
+    
+    -- Fade out
+    TS:Create(frame, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+    TS:Create(textLabel, TweenInfo.new(1), {TextTransparency = 1}):Play()
+    
+    wait(1)
+    popupGui:Destroy()
+end
+
+spawn(showStartupPopup)
+
+local function getchar()
+   return LP.Character or LP.CharacterAdded:Wait()
+end
+
+local function gethrp(c)
+   return c:FindFirstChild("HumanoidRootPart") or c:FindFirstChildWhichIsA("BasePart")
+end
+
+local function updateHumanoidStats(hum)
+    if hum then
+        hum.WalkSpeed = walkSpeed
+        hum.JumpPower = jumpPower
+    end
+end
+
+local flashback = {
+    lastinput = false,
+    canrevert = true,
+    active = false,
+    recording = false,
+    uiVisible = true,
+    settingsOpen = false
+}
+
+function flashback:Advance(char, hrp, hum, allowinput)
+   if not self.recording then return end
+   
+   if #frames > flashbacklength*60 then
+       table.remove(frames, 1)
+   end
+   
+   if allowinput and not self.canrevert then
+       self.canrevert = true
+   end
+   
+   if self.lastinput then
+       hum.PlatformStand = false
+       self.lastinput = false
+   end
+   
+   table.insert(frames, {
+       hrp.CFrame,
+       hrp.Velocity,
+       hum:GetState(),
+       hum.PlatformStand,
+       char:FindFirstChildOfClass("Tool")
+   })
+end
+
+function flashback:Revert(char, hrp, hum)
+   local num = #frames
+   if num == 0 then
+       self.active = false
+       return
+   end
+   
+   if not self.canrevert then
+       self.canrevert = false
+       self:Advance(char, hrp, hum)
+       return
+   end
+   
+   for i=1, flashbackspeed do
+       table.remove(frames, num)
+       num = num-1
+   end
+   
+   self.lastinput = true
+   local lastframe = frames[num]
+   table.remove(frames, num)
+   
+   hrp.CFrame = lastframe[1]
+   hrp.Velocity = -lastframe[2]
+   hum:ChangeState(lastframe[3])
+   hum.PlatformStand = lastframe[4]
+   
+   local currenttool = char:FindFirstChildOfClass("Tool")
+   if lastframe[5] then
+       if not currenttool then
+           lastframe[5].Parent = char
+       end
+   else
+       if currenttool then
+           currenttool.Parent = LP.Backpack
+       end
+   end
+   
+   if #frames == 0 then
+       self.active = false
+   end
+end
+
+-- Create main GUI container
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlashbackUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LP:WaitForChild("PlayerGui")
+
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0, 250, 0, 180)
+container.Position = UDim2.new(1, -50, 1, -50)
+container.AnchorPoint = Vector2.new(1, 1)
+container.BackgroundTransparency = 1
+container.Parent = screenGui
+
+-- Main menu frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(1, 0, 1, 0)
+mainFrame.BackgroundTransparency = 0
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.Parent = container
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
+
+-- Settings menu frame (initially hidden)
+local settingsFrame = Instance.new("Frame")
+settingsFrame.Size = UDim2.new(1, 0, 1, 0)
+settingsFrame.Position = UDim2.new(1, 0, 0, 0) -- Start off to the right
+settingsFrame.BackgroundTransparency = 0
+settingsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+settingsFrame.Visible = false
+settingsFrame.Parent = container
+
+local settingsCorner = Instance.new("UICorner")
+settingsCorner.CornerRadius = UDim.new(0, 8)
+settingsCorner.Parent = settingsFrame
+
+-- Settings title
+local settingsTitle = Instance.new("TextLabel")
+settingsTitle.Text = "SETTINGS"
+settingsTitle.Size = UDim2.new(1, 0, 0, 25)
+settingsTitle.Position = UDim2.new(0, 0, 0, 5)
+settingsTitle.BackgroundTransparency = 1
+settingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsTitle.Font = Enum.Font.GothamBold
+settingsTitle.TextSize = 16
+settingsTitle.Parent = settingsFrame
+
+-- WalkSpeed slider
+local walkSpeedLabel = Instance.new("TextLabel")
+walkSpeedLabel.Text = "WalkSpeed: "..walkSpeed
+walkSpeedLabel.Size = UDim2.new(1, 0, 0, 20)
+walkSpeedLabel.Position = UDim2.new(0, 0, 0.2, 0)
+walkSpeedLabel.BackgroundTransparency = 1
+walkSpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+walkSpeedLabel.Font = Enum.Font.Gotham
+walkSpeedLabel.TextSize = 14
+walkSpeedLabel.Parent = settingsFrame
+
+local walkSpeedSlider = Instance.new("TextButton")
+walkSpeedSlider.Name = "WalkSpeedSlider"
+walkSpeedSlider.Text = ""
+walkSpeedSlider.Size = UDim2.new(0.9, 0, 0, 10)
+walkSpeedSlider.Position = UDim2.new(0.05, 0, 0.3, 0)
+walkSpeedSlider.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+walkSpeedSlider.Parent = settingsFrame
+
+local walkSpeedFill = Instance.new("Frame")
+walkSpeedFill.Size = UDim2.new((walkSpeed/100), 0, 1, 0)
+walkSpeedFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+walkSpeedFill.Parent = walkSpeedSlider
+
+local walkSpeedCorner = Instance.new("UICorner")
+walkSpeedCorner.CornerRadius = UDim.new(1, 0)
+walkSpeedCorner.Parent = walkSpeedSlider
+
+local walkSpeedFillCorner = Instance.new("UICorner")
+walkSpeedFillCorner.CornerRadius = UDim.new(1, 0)
+walkSpeedFillCorner.Parent = walkSpeedFill
+
+-- JumpPower slider
+local jumpPowerLabel = Instance.new("TextLabel")
+jumpPowerLabel.Text = "JumpPower: "..jumpPower
+jumpPowerLabel.Size = UDim2.new(1, 0, 0, 20)
+jumpPowerLabel.Position = UDim2.new(0, 0, 0.5, 0)
+jumpPowerLabel.BackgroundTransparency = 1
+jumpPowerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+jumpPowerLabel.Font = Enum.Font.Gotham
+jumpPowerLabel.TextSize = 14
+jumpPowerLabel.Parent = settingsFrame
+
+local jumpPowerSlider = Instance.new("TextButton")
+jumpPowerSlider.Name = "JumpPowerSlider"
+jumpPowerSlider.Text = ""
+jumpPowerSlider.Size = UDim2.new(0.9, 0, 0, 10)
+jumpPowerSlider.Position = UDim2.new(0.05, 0, 0.6, 0)
+jumpPowerSlider.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+jumpPowerSlider.Parent = settingsFrame
+
+local jumpPowerFill = Instance.new("Frame")
+jumpPowerFill.Size = UDim2.new((jumpPower/1000), 0, 1, 0)
+jumpPowerFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+jumpPowerFill.Parent = jumpPowerSlider
+
+local jumpPowerCorner = Instance.new("UICorner")
+jumpPowerCorner.CornerRadius = UDim.new(1, 0)
+jumpPowerCorner.Parent = jumpPowerSlider
+
+local jumpPowerFillCorner = Instance.new("UICorner")
+jumpPowerFillCorner.CornerRadius = UDim.new(1, 0)
+jumpPowerFillCorner.Parent = jumpPowerFill
+
+-- Back button for settings
+local backButton = Instance.new("TextButton")
+backButton.Name = "BackButton"
+backButton.Text = "BACK (C)"
+backButton.Size = UDim2.new(0.9, 0, 0, 30)
+backButton.Position = UDim2.new(0.05, 0, 0.8, 0)
+backButton.Parent = settingsFrame
+
+-- Main menu elements
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Text = "REVERSE TOOL"
+titleLabel.Size = UDim2.new(1, 0, 0, 25)
+titleLabel.Position = UDim2.new(0, 0, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 16
+titleLabel.Parent = mainFrame
+
+local recordButton = Instance.new("TextButton")
+recordButton.Name = "RecordButton"
+recordButton.Text = "RECORD (R)"
+recordButton.Size = UDim2.new(0.9, 0, 0, 30)
+recordButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+recordButton.Parent = mainFrame
+
+local playButton = Instance.new("TextButton")
+playButton.Name = "PlayButton"
+playButton.Text = "PLAY (X)"
+playButton.Size = UDim2.new(0.9, 0, 0, 30)
+playButton.Position = UDim2.new(0.05, 0, 0.45, 0)
+playButton.Parent = mainFrame
+
+local settingsButton = Instance.new("TextButton")
+settingsButton.Name = "SettingsButton"
+settingsButton.Text = "SETTINGS (C)"
+settingsButton.Size = UDim2.new(0.9, 0, 0, 30)
+settingsButton.Position = UDim2.new(0.05, 0, 0.7, 0)
+settingsButton.Parent = mainFrame
+
+local framesLabel = Instance.new("TextLabel")
+framesLabel.Text = "FRAMES: 0"
+framesLabel.Size = UDim2.new(1, 0, 0, 25)
+framesLabel.Position = UDim2.new(0, 0, 0.85, 0)
+framesLabel.BackgroundTransparency = 1
+framesLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+framesLabel.Font = Enum.Font.GothamBold
+framesLabel.TextSize = 16
+framesLabel.Parent = mainFrame
+
+-- Button styling
+for _, button in pairs({recordButton, playButton, settingsButton, backButton}) do
+   button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+   button.TextColor3 = Color3.fromRGB(255, 255, 255)
+   button.Font = Enum.Font.GothamBold
+   button.TextSize = 16
+   local btnCorner = Instance.new("UICorner")
+   btnCorner.CornerRadius = UDim.new(0, 6)
+   btnCorner.Parent = button
+end
+
+-- Slider functionality
+local function updateWalkSpeed(value)
+    walkSpeed = math.floor(value)
+    walkSpeedLabel.Text = "WalkSpeed: "..walkSpeed
+    walkSpeedFill.Size = UDim2.new((walkSpeed/100), 0, 1, 0)
+    
+    local char = getchar()
+    updateHumanoidStats(char:FindFirstChildOfClass("Humanoid"))
+end
+
+local function updateJumpPower(value)
+    jumpPower = math.floor(value)
+    jumpPowerLabel.Text = "JumpPower: "..jumpPower
+    jumpPowerFill.Size = UDim2.new((jumpPower/1000), 0, 1, 0)
+    
+    local char = getchar()
+    updateHumanoidStats(char:FindFirstChildOfClass("Humanoid"))
+end
+
+local function createSliderDrag(slider, fill, callback, maxValue)
+    local dragging = false
+    
+    slider.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local xPos = (input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X
+            xPos = math.clamp(xPos, 0, 1)
+            callback(xPos * maxValue)
+        end
+    end)
+end
+
+createSliderDrag(walkSpeedSlider, walkSpeedFill, updateWalkSpeed, 100)
+createSliderDrag(jumpPowerSlider, jumpPowerFill, updateJumpPower, 1000)
+
+-- Toggle settings panel with slide animation
+local function toggleSettings()
+    flashback.settingsOpen = not flashback.settingsOpen
+    
+    if flashback.settingsOpen then
+        -- Hide main menu, show settings with slide in from right
+        mainFrame.Visible = false
+        settingsFrame.Visible = true
+        settingsFrame.Position = UDim2.new(1, 0, 0, 0)
+        TS:Create(settingsFrame, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    else
+        -- Slide settings out to right, then show main menu with slide in from left
+        TS:Create(settingsFrame, TweenInfo.new(0.3), {Position = UDim2.new(1, 0, 0, 0)}):Play()
+        wait(0.3)
+        settingsFrame.Visible = false
+        mainFrame.Visible = true
+        mainFrame.Position = UDim2.new(-1, 0, 0, 0)
+        TS:Create(mainFrame, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    end
+end
+
+-- Toggle UI visibility with fade
+local function toggleUI()
+    flashback.uiVisible = not flashback.uiVisible
+    
+    if flashback.uiVisible then
+        container.Visible = true
+        TS:Create(container, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+    else
+        TS:Create(container, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+        wait(0.3)
+        container.Visible = false
+        flashback.settingsOpen = false
+        settingsFrame.Visible = false
+        mainFrame.Visible = true
+        settingsFrame.Position = UDim2.new(1, 0, 0, 0)
+        mainFrame.Position = UDim2.new(0, 0, 0, 0)
+    end
+end
+
+-- Keybind functionality
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.R then
+        flashback.recording = not flashback.recording
+        recordButton.Text = flashback.recording and "RECORDING (R)" or "RECORD (R)"
+    elseif input.KeyCode == Enum.KeyCode.X then
+        if #frames > 0 then
+            flashback.active = not flashback.active
+            playButton.Text = flashback.active and "STOP (X)" or "PLAY (X)"
+        end
+    elseif input.KeyCode == Enum.KeyCode.C then
+        toggleSettings()
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        toggleUI()
+    end
+end)
+
+-- Button functionality
+recordButton.MouseButton1Click:Connect(function()
+    flashback.recording = not flashback.recording
+    recordButton.Text = flashback.recording and "RECORDING (R)" or "RECORD (R)"
+end)
+
+playButton.MouseButton1Click:Connect(function()
+    if #frames > 0 then
+        flashback.active = not flashback.active
+        playButton.Text = flashback.active and "STOP (X)" or "PLAY (X)"
+    end
+end)
+
+settingsButton.MouseButton1Click:Connect(toggleSettings)
+backButton.MouseButton1Click:Connect(toggleSettings)
+
+local function step()
+   if not LP.Character then return end
+   
+   local char = LP.Character
+   local hrp = gethrp(char)
+   local hum = char:FindFirstChildOfClass("Humanoid")
+   
+   if not (hrp and hum) then return end
+   
+   updateHumanoidStats(hum)
+   
+   if flashback.active then
+       flashback:Revert(char, hrp, hum)
+       if not flashback.active then
+           playButton.Text = "PLAY (X)"
+       end
+   else
+       flashback:Advance(char, hrp, hum, true)
+   end
+   
+   framesLabel.Text = "FRAMES: "..#frames
+end
+
+RS.Heartbeat:Connect(step)
