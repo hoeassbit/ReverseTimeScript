@@ -1,486 +1,1017 @@
-return function(utility)
-    local esp_table = {}
-    local workspace = cloneref(game:GetService("Workspace"))
-    local rservice = cloneref(game:GetService("RunService"))
-    local plrs = cloneref(game:GetService("Players"))
-    local lplr = plrs.LocalPlayer
-    local container = Instance.new("Folder", game:GetService("CoreGui").RobloxGui)
-    if not utility then
-        utility = {
-            connections = {
-                heartbeats = {},
-                renderstepped = {}
-            }
-        } do
-            utility.new_heartbeat = function(func)
-                local obj = {}
-                utility.connections.heartbeats[func] = func
-                function obj:Disconnect()
-                    utility.connections.heartbeats[func] = nil
-                end
-                return obj
-            end
-            utility.new_renderstepped = function(func)
-                local obj = {}
-                utility.connections.renderstepped[func] = func
-                function obj:Disconnect()
-                    utility.connections.renderstepped[func] = nil
-                end
-                return obj
-            end
-            local connection; connection = rservice.Heartbeat:Connect(function(delta)
-                for _, func in utility.connections.heartbeats do
-                    func(delta)
-                end
-            end)
-            local connection1; connection1 = rservice.RenderStepped:Connect(function(delta)
-                for _, func in utility.connections.renderstepped do
-                    func(delta)
-                end
-            end)
-        
-            utility.unload = function()
-                connection:Disconnect()
-                connection1:Disconnect()
-                for key, _ in utility.connections.heartbeats do
-                    utility.connections.heartbeats[key] = nil
-                end
-                for key, _ in utility.connections.renderstepped do
-                    utility.connections.heartbeats[key] = nil
-                end
-            end
-        end
-    end
-    esp_table = {
-        __loaded = false,
-        main_settings = {
-            textSize = 15,
-            textFont = Drawing.Fonts.Monospace,
-            distancelimit = false,
-            maxdistance = 200,
-            useteamcolor = false,
-            teamcheck = false,
-            fadetime = 1
-        },
-        settings = {
-            enemy = {
-                enabled = false,
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-                box = false,
-                box_fill = false,
-                realname = false,
-                displayname = false,
-                health = false,
-                dist = false,
-                weapon = false,
-                skeleton = false,
+-- Create the UI
+local ESPUI = Instance.new("ScreenGui")
+ESPUI.Name = "AdvancedESPControl"
+ESPUI.ResetOnSpawn = false
+ESPUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ESPUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-                box_outline = false,
-                realname_outline = false,
-                displayname_outline = false,
-                health_outline = false,
-                dist_outline = false,
-                weapon_outline = false,
+-- Main container
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 320, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.Parent = ESPUI
 
-                box_color = { Color3.new(1, 1, 1), 1 },
-                box_fill_color = { Color3.new(1, 0, 0), 0.5 },
-                realname_color = { Color3.new(1, 1, 1), 1 },
-                displayname_color = { Color3.new(1, 1, 1), 1 },
-                health_color = { Color3.new(1, 1, 1), 1 },
-                dist_color = { Color3.new(1, 1, 1), 1 },
-                weapon_color = { Color3.new(1, 1, 1), 1 },
-                skeleton_color = { Color3.new(1, 1, 1), 1 },
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
 
-                box_outline_color = { Color3.new(), 1 },
-                realname_outline_color = Color3.new(),
-                displayname_outline_color = Color3.new(),
-                health_outline_color = Color3.new(),
-                dist_outline_color = Color3.new(),
-                weapon_outline_color = Color3.new(),
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(60, 60, 70)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
 
-                chams = false,
-                chams_visible_only = false,
-                chams_fill_color = { Color3.new(1, 1, 1), 0.5 },
-                chamsoutline_color = { Color3.new(1, 1, 1), 0 }
-            }
-        }
-    }
-    local loaded_plrs = {}
-    -- (please update me) vars
-    local camera = workspace.CurrentCamera
-    local viewportsize = camera.ViewportSize
+-- Tabs
+local TabsFrame = Instance.new("Frame")
+TabsFrame.Size = UDim2.new(1, 0, 0, 40)
+TabsFrame.BackgroundTransparency = 1
+TabsFrame.Parent = MainFrame
 
-    -- constants
-    local VERTICES = {
-        Vector3.new(-1, -1, -1),
-        Vector3.new(-1, 1, -1),
-        Vector3.new(-1, 1, 1),
-        Vector3.new(-1, -1, 1),
-        Vector3.new(1, -1, -1),
-        Vector3.new(1, 1, -1),
-        Vector3.new(1, 1, 1),
-        Vector3.new(1, -1, 1)
-    }
-    local skeleton_order = {
-        ["LeftFoot"] = "LeftLowerLeg",
-        ["LeftLowerLeg"] = "LeftUpperLeg",
-        ["LeftUpperLeg"] = "LowerTorso",
+local ESPTab = Instance.new("TextButton")
+ESPTab.Text = "ESP/Chams"
+ESPTab.Size = UDim2.new(0.5, -5, 1, 0)
+ESPTab.Position = UDim2.new(0, 0, 0, 0)
+ESPTab.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+ESPTab.TextColor3 = Color3.fromRGB(220, 220, 220)
+ESPTab.Font = Enum.Font.GothamSemibold
+ESPTab.TextSize = 14
+ESPTab.Parent = TabsFrame
 
-        ["RightFoot"] = "RightLowerLeg",
-        ["RightLowerLeg"] = "RightUpperLeg",
-        ["RightUpperLeg"] = "LowerTorso",
+local PlayerTab = Instance.new("TextButton")
+PlayerTab.Text = "Players"
+PlayerTab.Size = UDim2.new(0.5, -5, 1, 0)
+PlayerTab.Position = UDim2.new(0.5, 5, 0, 0)
+PlayerTab.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+PlayerTab.TextColor3 = Color3.fromRGB(220, 220, 220)
+PlayerTab.Font = Enum.Font.GothamSemibold
+PlayerTab.TextSize = 14
+PlayerTab.Parent = TabsFrame
 
-        ["LeftHand"] = "LeftLowerArm",
-        ["LeftLowerArm"] = "LeftUpperArm",
-        ["LeftUpperArm"] = "UpperTorso",
+local TabCorner = Instance.new("UICorner")
+TabCorner.CornerRadius = UDim.new(0, 6)
+TabCorner.Parent = ESPTab
+TabCorner:Clone().Parent = PlayerTab
 
-        ["RightHand"] = "RightLowerArm",
-        ["RightLowerArm"] = "RightUpperArm",
-        ["RightUpperArm"] = "UpperTorso",
+-- Content frames
+local ESPContent = Instance.new("Frame")
+ESPContent.Size = UDim2.new(1, 0, 1, -40)
+ESPContent.Position = UDim2.new(0, 0, 0, 40)
+ESPContent.BackgroundTransparency = 1
+ESPContent.Visible = true
+ESPContent.Parent = MainFrame
 
-        ["LowerTorso"] = "UpperTorso",
-        ["UpperTorso"] = "Head"
-    }
-    -- game specific function
-    local function getcurrentweapon(character)
-        --return "None"
-        local gun = "None"
-        for _, v in character:GetChildren() do
-            if v and v.ClassName == "Model" and not v.Name:find("Holster") and v:FindFirstChild("FlashPart") then
-                gun = v.Name
-            end
-        end
+local PlayerContent = Instance.new("Frame")
+PlayerContent.Size = UDim2.new(1, 0, 1, -40)
+PlayerContent.Position = UDim2.new(0, 0, 0, 40)
+PlayerContent.BackgroundTransparency = 1
+PlayerContent.Visible = false
+PlayerContent.Parent = MainFrame
 
-        return gun
-    end
-    -- functions
-    local esp = {}
-    esp.create_obj = function(type, args)
-        local obj = Drawing.new(type)
-        for i, v in args do
-            obj[i] = v
-        end
-        return obj
-    end
+-- Tab switching
+ESPTab.MouseButton1Click:Connect(function()
+    ESPContent.Visible = true
+    PlayerContent.Visible = false
+    TweenService:Create(ESPTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 70)}):Play()
+    TweenService:Create(PlayerTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+end)
 
+PlayerTab.MouseButton1Click:Connect(function()
+    ESPContent.Visible = false
+    PlayerContent.Visible = true
+    TweenService:Create(PlayerTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 70)}):Play()
+    TweenService:Create(ESPTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+end)
 
+-- ESP/Chams Content
+local ESPLabel = Instance.new("TextLabel")
+ESPLabel.Text = "ESP SETTINGS"
+ESPLabel.Size = UDim2.new(1, -20, 0, 20)
+ESPLabel.Position = UDim2.new(0, 10, 0, 10)
+ESPLabel.BackgroundTransparency = 1
+ESPLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ESPLabel.Font = Enum.Font.Gotham
+ESPLabel.TextSize = 12
+ESPLabel.TextXAlignment = Enum.TextXAlignment.Left
+ESPLabel.Parent = ESPContent
 
-    local function isBodyPart(name)
-        return name == "Head" or name:find("Torso") or name:find("Leg") or name:find("Arm")
-    end
-    local function getBoundingBox(parts)
-        local min, max
-        for i = 1, #parts do
-            local part = parts[i]
-            local cframe, size = part.CFrame, part.Size
+-- ESP Toggle
+local ESPToggleFrame = Instance.new("Frame")
+ESPToggleFrame.Size = UDim2.new(1, -20, 0, 30)
+ESPToggleFrame.Position = UDim2.new(0, 10, 0, 35)
+ESPToggleFrame.BackgroundTransparency = 1
+ESPToggleFrame.Parent = ESPContent
 
-            min = Vector3.zero.Min(min or cframe.Position, (cframe - size * 0.5).Position)
-            max = Vector3.zero.Max(max or cframe.Position, (cframe + size * 0.5).Position)
-        end
+local ESPToggleLabel = Instance.new("TextLabel")
+ESPToggleLabel.Text = "ESP Enabled"
+ESPToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+ESPToggleLabel.BackgroundTransparency = 1
+ESPToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+ESPToggleLabel.Font = Enum.Font.Gotham
+ESPToggleLabel.TextSize = 14
+ESPToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ESPToggleLabel.Parent = ESPToggleFrame
 
-        local center = (min + max) * 0.5
-        local front = Vector3.new(center.X, center.Y, max.Z)
-        return CFrame.new(center, front), max - min
-    end
+local ESPToggle = Instance.new("TextButton")
+ESPToggle.Text = ""
+ESPToggle.Size = UDim2.new(0, 50, 0, 25)
+ESPToggle.Position = UDim2.new(1, -50, 0.5, -12.5)
+ESPToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+ESPToggle.Parent = ESPToggleFrame
 
-    local function worldToScreen(world)
-        local screen, inBounds = camera.WorldToViewportPoint(camera, world)
-        return Vector2.new(screen.X, screen.Y), inBounds, screen.Z
-    end
+local ESPToggleKnob = Instance.new("Frame")
+ESPToggleKnob.Size = UDim2.new(0, 23, 1, -4)
+ESPToggleKnob.Position = UDim2.new(0, 2, 0, 2)
+ESPToggleKnob.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+ESPToggleKnob.Parent = ESPToggle
 
-    local function calculateCorners(cframe, size)
-        local corners = table.create(#VERTICES)
-        for i = 1, #VERTICES do
-            corners[i] = worldToScreen((cframe + size * 0.5 * VERTICES[i]).Position)
-        end
+local ESPToggleCorner = Instance.new("UICorner")
+ESPToggleCorner.CornerRadius = UDim.new(1, 0)
+ESPToggleCorner.Parent = ESPToggle
 
-        local min = Vector2.zero.Min(camera.ViewportSize, unpack(corners))
-        local max = Vector2.zero.Max(Vector2.zero, unpack(corners))
-        return {
-            corners = corners,
-            topLeft = Vector2.new(math.floor(min.X), math.floor(min.Y)),
-            topRight = Vector2.new(math.floor(max.X), math.floor(min.Y)),
-            bottomLeft = Vector2.new(math.floor(min.X), math.floor(max.Y)),
-            bottomRight = Vector2.new(math.floor(max.X), math.floor(max.Y))
-        }
-    end
+local ESPToggleKnobCorner = Instance.new("UICorner")
+ESPToggleKnobCorner.CornerRadius = UDim.new(1, 0)
+ESPToggleKnobCorner.Parent = ESPToggleKnob
 
-    -- MAINN
+-- ESP Color
+local ESPColorFrame = Instance.new("Frame")
+ESPColorFrame.Size = UDim2.new(1, -20, 0, 30)
+ESPColorFrame.Position = UDim2.new(0, 10, 0, 70)
+ESPColorFrame.BackgroundTransparency = 1
+ESPColorFrame.Parent = ESPContent
 
-    local function create_esp(player)
-        if not player then return end
-        local settings = esp_table.settings.enemy
-        loaded_plrs[player] = {
-            obj = {
-                box_fill = esp.create_obj("Square", { Filled = true, Visible = false }),
-                box_outline = esp.create_obj("Square", { Filled = false, Thickness = 3, Visible = false, ZIndex = -1 }),
-                box = esp.create_obj("Square", { Filled = false, Thickness = 1, Visible = false }),
-                realname = esp.create_obj("Text", { Center = true, Visible = false }),
-                displayname = esp.create_obj("Text", { Center = true, Visible = false }),
-                health = esp.create_obj("Text", { Center = false, Visible = false }),
-                dist = esp.create_obj("Text", { Center = false, Visible = false }),
-                weapon = esp.create_obj("Text", { Center = true, Visible = false }),
-            },
-            esp = {
-                visible = false,
-                onscreen = false,
-                distance = 0,
-                alive = false,
-                current_gun = "",
-                health = 0,
-                max_health = 0,
-                corners = nil,
-                head = nil,
-                cache = {},
-                cache_children = 0,
-                character = nil
-            },
-            chams_object = Instance.new("Highlight", container),
-            plr_instance = player
-        }
-        for required, _ in next, skeleton_order do
-            loaded_plrs[player].obj["skeleton_" .. required] = esp.create_obj("Line", { Visible = false })
-        end
-        local plr = loaded_plrs[player]
-        plr.connection = utility.new_renderstepped(function(delta)
-            local plr = loaded_plrs[player]
-            -- setup
-            camera = workspace.CurrentCamera
-            if not camera then return end
-            local obj = plr.obj
-            local esp = plr.esp
-            local main_settings = esp_table.main_settings
-            if settings.enabled and
-                (main_settings.teamcheck and lplr.Team ~= player.Team or not main_settings.teamcheck) and
-                (player.Character and player.Character:FindFirstChild("Head")) then
-                esp.character = player.Character
-                local humanoid = esp.character:FindFirstChildOfClass("Humanoid")
-                esp.head = esp.character:FindFirstChild("Head")
-                local _, onScreen = worldToScreen(esp.head.Position)
-                esp.onscreen = onScreen
-                if esp.onscreen then
-                    esp.distance = (camera.CFrame.p - esp.head.Position).Magnitude
-                    esp.health = humanoid and humanoid.Health or 0
-                    esp.max_health = humanoid and humanoid.MaxHealth or 1
-                    esp.alive = humanoid and humanoid.Health > 0 or false
-                    do
-                        local cache = {}
-                        for i = 1, #esp.character:GetChildren() do
-                            local part = esp.character:GetChildren()[i]
-                            if part:IsA("BasePart") and isBodyPart(part.Name) then
-                                cache[#cache + 1] = part
-                            end
-                        end
-                        esp.corners = calculateCorners(getBoundingBox(cache))
-                    end
-                    if esp.corners then
-                        local box = obj.box
-                        local box_outline = obj.box_outline
-                        local box_fill = obj.box_fill
-                        local health = obj.health
-                        local realname = obj.realname
-                        local displayname = obj.displayname
-                        local dist = obj.dist
-                        local weapon = obj.weapon
-                        local cham = plr.chams_object
-                        local corners = esp.corners
+local ESPColorLabel = Instance.new("TextLabel")
+ESPColorLabel.Text = "ESP Color"
+ESPColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
+ESPColorLabel.BackgroundTransparency = 1
+ESPColorLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+ESPColorLabel.Font = Enum.Font.Gotham
+ESPColorLabel.TextSize = 14
+ESPColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ESPColorLabel.Parent = ESPColorFrame
 
-                        cham.Enabled = settings.chams
-                        if cham.Enabled then
-                            cham.DepthMode = settings.chams_visible_only and 1 or 0
-                            cham.Adornee = esp.character
-                            cham.FillColor = settings.chams_fill_color[1]
-                            cham.FillTransparency = settings.chams_fill_color[2]
-                            cham.OutlineColor = settings.chamsoutline_color[1]
-                            cham.OutlineTransparency = settings.chamsoutline_color[2]
-                        end
+local ESPColorBox = Instance.new("TextButton")
+ESPColorBox.Text = ""
+ESPColorBox.Size = UDim2.new(0, 50, 0, 25)
+ESPColorBox.Position = UDim2.new(1, -50, 0.5, -12.5)
+ESPColorBox.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+ESPColorBox.Parent = ESPColorFrame
 
-                        box.Visible = settings.box
-                        box_outline.Visible = box.Visible and settings.box_outline
-                        box_fill.Visible = box.Visible and settings.box_fill
-                        if box.Visible then
-                            box.Position = corners.topLeft
-                            box.Size = corners.bottomRight - corners.topLeft
-                            box.Color = settings.box_color[1]
+local ESPColorCorner = Instance.new("UICorner")
+ESPColorCorner.CornerRadius = UDim.new(0, 4)
+ESPColorCorner.Parent = ESPColorBox
 
+-- Chams Toggle
+local ChamsLabel = Instance.new("TextLabel")
+ChamsLabel.Text = "CHAMS SETTINGS"
+ChamsLabel.Size = UDim2.new(1, -20, 0, 20)
+ChamsLabel.Position = UDim2.new(0, 10, 0, 110)
+ChamsLabel.BackgroundTransparency = 1
+ChamsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ChamsLabel.Font = Enum.Font.Gotham
+ChamsLabel.TextSize = 12
+ChamsLabel.TextXAlignment = Enum.TextXAlignment.Left
+ChamsLabel.Parent = ESPContent
 
-                            box_outline.Position = box.Position + Vector2.new(2, 2)
-                            box_outline.Size = box.Size - Vector2.new(2, 2)
-                            box_outline.Color = settings.box_outline_color[1]
+local ChamsToggleFrame = Instance.new("Frame")
+ChamsToggleFrame.Size = UDim2.new(1, -20, 0, 30)
+ChamsToggleFrame.Position = UDim2.new(0, 10, 0, 135)
+ChamsToggleFrame.BackgroundTransparency = 1
+ChamsToggleFrame.Parent = ESPContent
 
-                            box_fill.Position = box.Position
-                            box_fill.Size = box.Size
-                            box_fill.Color = settings.box_fill_color[1]
-                        end
+local ChamsToggleLabel = Instance.new("TextLabel")
+ChamsToggleLabel.Text = "Chams Enabled"
+ChamsToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+ChamsToggleLabel.BackgroundTransparency = 1
+ChamsToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+ChamsToggleLabel.Font = Enum.Font.Gotham
+ChamsToggleLabel.TextSize = 14
+ChamsToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ChamsToggleLabel.Parent = ChamsToggleFrame
 
-                        realname.Visible = settings.realname
-                        if realname.Visible then
-                            realname.Size = main_settings.textSize
-                            realname.Font = main_settings.textFont
-                            realname.Text = player.Name
-                            realname.Color = settings.realname_color[1]
+local ChamsToggle = Instance.new("TextButton")
+ChamsToggle.Text = ""
+ChamsToggle.Size = UDim2.new(0, 50, 0, 25)
+ChamsToggle.Position = UDim2.new(1, -50, 0.5, -12.5)
+ChamsToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+ChamsToggle.Parent = ChamsToggleFrame
 
-                            realname.Outline = settings.realname_outline
-                            realname.OutlineColor = settings.realname_outline_color
-                            realname.Position = (corners.topLeft + corners.topRight) * 0.5 -
-                                Vector2.yAxis * realname.TextBounds.Y - Vector2.new(0, 2)
-                        end
+local ChamsToggleKnob = Instance.new("Frame")
+ChamsToggleKnob.Size = UDim2.new(0, 23, 1, -4)
+ChamsToggleKnob.Position = UDim2.new(0, 2, 0, 2)
+ChamsToggleKnob.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+ChamsToggleKnob.Parent = ChamsToggle
 
-                        displayname.Visible = settings.displayname and settings.realname and
-                        not player.Name == player.DisplayName
-                        if displayname.Visible then
-                            displayname.Size = main_settings.textSize
-                            displayname.Font = main_settings.textFont
-                            displayname.Text = player.DisplayName
-                            displayname.Color = settings.displayname_color[1]
+local ChamsToggleCorner = Instance.new("UICorner")
+ChamsToggleCorner.CornerRadius = UDim.new(1, 0)
+ChamsToggleCorner.Parent = ChamsToggle
 
-                            displayname.Outline = settings.displayname_outline
-                            displayname.OutlineColor = settings.displayname_outline_color
-                            displayname.Position = (corners.topLeft + corners.topRight) * 0.5 -
-                                Vector2.yAxis * displayname.TextBounds.Y -
-                                (realname.Visible and Vector2.yAxis * realname.TextBounds.Y or Vector2.zero)
-                        end
+local ChamsToggleKnobCorner = Instance.new("UICorner")
+ChamsToggleKnobCorner.CornerRadius = UDim.new(1, 0)
+ChamsToggleKnobCorner.Parent = ChamsToggleKnob
 
-                        dist.Visible = settings.dist
-                        if dist.Visible then
-                            dist.Size = main_settings.textSize
-                            dist.Font = main_settings.textFont
-                            dist.Text = math.round(esp.distance) .. "s"
-                            dist.Color = settings.dist_color[1]
+-- Chams Color
+local ChamsColorFrame = Instance.new("Frame")
+ChamsColorFrame.Size = UDim2.new(1, -20, 0, 30)
+ChamsColorFrame.Position = UDim2.new(0, 10, 0, 170)
+ChamsColorFrame.BackgroundTransparency = 1
+ChamsColorFrame.Parent = ESPContent
 
-                            dist.Outline = settings.dist_outline
-                            dist.OutlineColor = settings.dist_outline_color
-                            dist.Position = corners.topRight + Vector2.new(2, 0) -
-                                Vector2.yAxis * (dist.TextBounds.Y * 0.25)
-                        end
+local ChamsColorLabel = Instance.new("TextLabel")
+ChamsColorLabel.Text = "Chams Color"
+ChamsColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
+ChamsColorLabel.BackgroundTransparency = 1
+ChamsColorLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+ChamsColorLabel.Font = Enum.Font.Gotham
+ChamsColorLabel.TextSize = 14
+ChamsColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ChamsColorLabel.Parent = ChamsColorFrame
 
-                        health.Visible = settings.health
-                        if health.Visible then
-                            health.Size = main_settings.textSize
-                            health.Font = main_settings.textFont
-                            health.Text = esp.health
-                            health.Color = settings.health_color[1]
+local ChamsColorBox = Instance.new("TextButton")
+ChamsColorBox.Text = ""
+ChamsColorBox.Size = UDim2.new(0, 50, 0, 25)
+ChamsColorBox.Position = UDim2.new(1, -50, 0.5, -12.5)
+ChamsColorBox.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+ChamsColorBox.Parent = ChamsColorFrame
 
-                            health.Outline = settings.health_outline
-                            health.OutlineColor = settings.health_outline_color
-                            health.Position = corners.topLeft - Vector2.new(2, 0) -
-                                Vector2.yAxis * (health.TextBounds.Y * 0.25) - 
-                                Vector2.xAxis * health.TextBounds.X
-                        end
+local ChamsColorCorner = Instance.new("UICorner")
+ChamsColorCorner.CornerRadius = UDim.new(0, 4)
+ChamsColorCorner.Parent = ChamsColorBox
 
-                        weapon.Visible = settings.weapon
-                        if weapon.Visible then
-                            weapon.Size = main_settings.textSize
-                            weapon.Font = main_settings.textFont
-                            weapon.Text = esp_table.get_gun(player)
-                            weapon.Color = settings.weapon_color[1]
+-- Hitbox Settings
+local HitboxLabel = Instance.new("TextLabel")
+HitboxLabel.Text = "HITBOX SETTINGS"
+HitboxLabel.Size = UDim2.new(1, -20, 0, 20)
+HitboxLabel.Position = UDim2.new(0, 10, 0, 210)
+HitboxLabel.BackgroundTransparency = 1
+HitboxLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+HitboxLabel.Font = Enum.Font.Gotham
+HitboxLabel.TextSize = 12
+HitboxLabel.TextXAlignment = Enum.TextXAlignment.Left
+HitboxLabel.Parent = ESPContent
 
-                            weapon.Outline = settings.weapon_outline
-                            weapon.OutlineColor = settings.weapon_outline_color
-                            weapon.Position = (corners.bottomLeft + corners.bottomRight) * 0.5
-                        end
-                        task.spawn(function()
-                            if (settings.skeleton and esp.character) then
-                                for _, part in next, esp.character:GetChildren() do
-                                    if skeleton_order[part.Name] and esp.character[part.Name] then
-                                        local parent_part = skeleton_order[part.Name]
-                                        local part_position, _ = camera:WorldToViewportPoint(part.Position)
-                                        local parent_part_position, _ = camera:WorldToViewportPoint(
-                                            (
-                                                esp.character[parent_part].CFrame
-                                            ).Position
-                                        )
-                                        obj["skeleton_" .. part.Name].From = Vector2.new(part_position.X, part_position
-                                        .Y)
-                                        obj["skeleton_" .. part.Name].To = Vector2.new(parent_part_position.X,
-                                            parent_part_position.Y)
-                                        obj["skeleton_" .. part.Name].Color = settings.skeleton_color[1]
-                                        obj["skeleton_" .. part.Name].Transparency = settings.skeleton_color[2]
-                                        obj["skeleton_" .. part.Name].Visible = true
-                                    end
-                                end
-                            else
-                                for required, _ in next, skeleton_order do
-                                    if (obj["skeleton_" .. required]) then
-                                        obj["skeleton_" .. required].Visible = settings.skeleton
-                                    end
-                                end
-                            end
-                        end)
-                        if not esp.alive then -- not alive womp womp
-                            local fadetime = main_settings.fadetime
-                            for _, v in obj do
-                                v.Transparency = v.Transparency - (delta / fadetime)
-                                if v.Transparency <= 0 then
-                                    v.Visible = false
-                                end
-                            end
-                            cham.FillTransparency = cham.FillTransparency - (delta / fadetime)
-                            cham.OutlineTransparency = cham.OutlineTransparency - (delta / fadetime)
-                            if cham.FillTransparency <= 0 or cham.OutlineTransparency <= 0 then
-                                cham.Enabled = false
-                            end
-                        else
-                            box.Transparency = settings.box_color[2]
-                            box_outline.Transparency = settings.box_outline_color[2]
-                            box_fill.Transparency = settings.box_fill_color[2]
-                            realname.Transparency = settings.realname_color[2]
-                            displayname.Transparency = settings.displayname_color[2]
-                            health.Transparency = settings.health_color[2]
-                            dist.Transparency = settings.dist_color[2]
-                            weapon.Transparency = settings.weapon_color[2]
-                        end
-                    else -- disabled, no corners
-                        for _, v in obj do v.Visible = false end
-                        plr.chams_object.Enabled = false
-                    end
-                else -- not on screen
-                    for _, v in obj do v.Visible = false end
-                    plr.chams_object.Enabled = false
-                end
-            else -- not here
-                for _, v in obj do v.Visible = false end
-                plr.chams_object.Enabled = false
-            end
-        end)
-    end
-    local function destroy_esp(player)
-        if not loaded_plrs[player] then return end
-        loaded_plrs[player].connection:Disconnect()
-        table.foreach(loaded_plrs[player].obj, function(i, v)
-            v:Remove()
-        end)
-        loaded_plrs[player].chams_object:Destroy()
-        loaded_plrs[player] = nil
-    end
+local HitboxToggleFrame = Instance.new("Frame")
+HitboxToggleFrame.Size = UDim2.new(1, -20, 0, 30)
+HitboxToggleFrame.Position = UDim2.new(0, 10, 0, 235)
+HitboxToggleFrame.BackgroundTransparency = 1
+HitboxToggleFrame.Parent = ESPContent
 
-    function esp_table.load()
-        assert(not esp_table.__loaded, "[ESP] already loaded");
+local HitboxToggleLabel = Instance.new("TextLabel")
+HitboxToggleLabel.Text = "Head Hitbox Extender"
+HitboxToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+HitboxToggleLabel.BackgroundTransparency = 1
+HitboxToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+HitboxToggleLabel.Font = Enum.Font.Gotham
+HitboxToggleLabel.TextSize = 14
+HitboxToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+HitboxToggleLabel.Parent = HitboxToggleFrame
 
-        for i, v in next, plrs:GetPlayers() do
-            task.spawn(function() if v ~= lplr then create_esp(v) end end)
-        end
+local HitboxToggle = Instance.new("TextButton")
+HitboxToggle.Text = ""
+HitboxToggle.Size = UDim2.new(0, 50, 0, 25)
+HitboxToggle.Position = UDim2.new(1, -50, 0.5, -12.5)
+HitboxToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+HitboxToggle.Parent = HitboxToggleFrame
 
-        esp_table.playerAdded = plrs.PlayerAdded:Connect(create_esp);
-        esp_table.playerRemoving = plrs.PlayerRemoving:Connect(destroy_esp);
-        esp_table.__loaded = true;
-    end
+local HitboxToggleKnob = Instance.new("Frame")
+HitboxToggleKnob.Size = UDim2.new(0, 23, 1, -4)
+HitboxToggleKnob.Position = UDim2.new(0, 2, 0, 2)
+HitboxToggleKnob.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+HitboxToggleKnob.Parent = HitboxToggle
 
-    function esp_table.unload()
-        assert(esp_table.__loaded, "[ESP] not loaded yet");
+local HitboxToggleCorner = Instance.new("UICorner")
+HitboxToggleCorner.CornerRadius = UDim.new(1, 0)
+HitboxToggleCorner.Parent = HitboxToggle
 
-        for i, v in next, plrs:GetPlayers() do
-            task.spawn(function() destroy_esp(v) end)
-        end
+local HitboxToggleKnobCorner = Instance.new("UICorner")
+HitboxToggleKnobCorner.CornerRadius = UDim.new(1, 0)
+HitboxToggleKnobCorner.Parent = HitboxToggleKnob
 
-        esp_table.playerAdded:Disconnect();
-        esp_table.playerRemoving:Disconnect();
-        esp_table.__loaded = false;
-    end
+local HitboxSizeFrame = Instance.new("Frame")
+HitboxSizeFrame.Size = UDim2.new(1, -20, 0, 30)
+HitboxSizeFrame.Position = UDim2.new(0, 10, 0, 270)
+HitboxSizeFrame.BackgroundTransparency = 1
+HitboxSizeFrame.Parent = ESPContent
 
-    function esp_table.get_gun(player)
-        return "unknown"
-    end
+local HitboxSizeLabel = Instance.new("TextLabel")
+HitboxSizeLabel.Text = "Head Size Multiplier"
+HitboxSizeLabel.Size = UDim2.new(0.7, 0, 1, 0)
+HitboxSizeLabel.BackgroundTransparency = 1
+HitboxSizeLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+HitboxSizeLabel.Font = Enum.Font.Gotham
+HitboxSizeLabel.TextSize = 14
+HitboxSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+HitboxSizeLabel.Parent = HitboxSizeFrame
 
-    return esp_table
+local HitboxSizeBox = Instance.new("TextBox")
+HitboxSizeBox.Text = "2.0"
+HitboxSizeBox.Size = UDim2.new(0, 50, 0, 25)
+HitboxSizeBox.Position = UDim2.new(1, -50, 0.5, -12.5)
+HitboxSizeBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+HitboxSizeBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+HitboxSizeBox.Font = Enum.Font.Gotham
+HitboxSizeBox.TextSize = 14
+HitboxSizeBox.Parent = HitboxSizeFrame
+
+local HitboxSizeCorner = Instance.new("UICorner")
+HitboxSizeCorner.CornerRadius = UDim.new(0, 4)
+HitboxSizeCorner.Parent = HitboxSizeBox
+
+local HitboxSizePadding = Instance.new("UIPadding")
+HitboxSizePadding.PaddingLeft = UDim.new(0, 5)
+HitboxSizePadding.PaddingRight = UDim.new(0, 5)
+HitboxSizePadding.Parent = HitboxSizeBox
+
+-- Player Content
+local SearchFrame = Instance.new("Frame")
+SearchFrame.Size = UDim2.new(1, -20, 0, 40)
+SearchFrame.Position = UDim2.new(0, 10, 0, 10)
+SearchFrame.BackgroundTransparency = 1
+SearchFrame.Parent = PlayerContent
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(1, 0, 1, 0)
+SearchBox.PlaceholderText = "Search players..."
+SearchBox.ClearTextOnFocus = false
+SearchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SearchBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 14
+SearchBox.Parent = SearchFrame
+
+local SearchPadding = Instance.new("UIPadding")
+SearchPadding.PaddingLeft = UDim.new(0, 10)
+SearchPadding.PaddingRight = UDim.new(0, 10)
+SearchPadding.Parent = SearchBox
+
+local SearchCorner = Instance.new("UICorner")
+SearchCorner.CornerRadius = UDim.new(0, 6)
+SearchCorner.Parent = SearchBox
+
+local PlayerList = Instance.new("ScrollingFrame")
+PlayerList.Size = UDim2.new(1, -20, 1, -100)
+PlayerList.Position = UDim2.new(0, 10, 0, 60)
+PlayerList.BackgroundTransparency = 1
+PlayerList.ScrollBarThickness = 4
+PlayerList.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 90)
+PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerList.Parent = PlayerContent
+
+local PlayerListLayout = Instance.new("UIListLayout")
+PlayerListLayout.Padding = UDim.new(0, 5)
+PlayerListLayout.Parent = PlayerList
+
+-- Status label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Text = "Ready"
+StatusLabel.Size = UDim2.new(1, -20, 0, 20)
+StatusLabel.Position = UDim2.new(0, 10, 1, -30)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 12
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = PlayerContent
+
+-- Dragging functionality
+local dragging, dragInput, dragStart, startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateInput(input)
+    end
+end)
+
+-- ESP/Chams/Hitbox functionality
+local ESP = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 0, 0),
+    Boxes = {},
+    Font = Enum.Font.GothamBold,
+    TextSize = 14
+}
+
+local Chams = {
+    Enabled = false,
+    Color = Color3.fromRGB(0, 150, 255),
+    Highlights = {}
+}
+
+local Hitbox = {
+    Enabled = false,
+    Size = 2.0,
+    OriginalSizes = {}
+}
+
+local function createESP(player)
+    if ESP.Boxes[player] then return end
+
+    local character = player.Character
+    if not character then return end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local head = character:FindFirstChild("Head")
+    local rootPart = character:FindFirstChild("HumanoidRootPart") or head
+    if not humanoid or not head or not rootPart then return end
+
+    -- Create a bounding box that covers the entire character
+    local boundingBox = Instance.new("BoxHandleAdornment")
+    boundingBox.Name = "ESP_"..player.Name
+    boundingBox.Adornee = rootPart
+    boundingBox.AlwaysOnTop = true
+    boundingBox.ZIndex = 5
+    boundingBox.Size = Vector3.new(4, 6, 4) -- Adjust size as needed
+    boundingBox.Transparency = 1
+    boundingBox.Color3 = ESP.Color
+    boundingBox.Parent = rootPart
+
+    -- Create billboard for name and health
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPInfo_"..player.Name
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(5, 0, 2, 0)
+    billboard.StudsOffset = Vector3.new(0, 4, 0)
+    billboard.Adornee = head
+    billboard.Parent = head
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "Name"
+    nameLabel.Text = player.DisplayName.." (@"..player.Name..")"
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = ESP.Color
+    nameLabel.Font = ESP.Font
+    nameLabel.TextSize = ESP.TextSize
+    nameLabel.Parent = billboard
+
+    local healthLabel = Instance.new("TextLabel")
+    healthLabel.Name = "Health"
+    healthLabel.Text = "HP: "..math.floor(humanoid.Health).. " | "..math.floor((rootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude).." studs"
+    healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    healthLabel.BackgroundTransparency = 1
+    healthLabel.TextColor3 = ESP.Color
+    healthLabel.Font = ESP.Font
+    healthLabel.TextSize = ESP.TextSize - 2
+    healthLabel.Parent = billboard
+
+    ESP.Boxes[player] = {
+        Box = boundingBox,
+        Billboard = billboard
+    }
+
+    -- Update health and distance
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not character or not character.Parent then
+            connection:Disconnect()
+            return
+        end
+        
+        local localChar = LocalPlayer.Character
+        if localChar and localChar:FindFirstChild("HumanoidRootPart") then
+            local distance = math.floor((rootPart.Position - localChar.HumanoidRootPart.Position).Magnitude)
+            healthLabel.Text = "HP: "..math.floor(humanoid.Health).. " | "..distance.." studs"
+        else
+            healthLabel.Text = "HP: "..math.floor(humanoid.Health)
+        end
+    end)
+
+    humanoid.HealthChanged:Connect(function(health)
+        healthLabel.Text = "HP: "..math.floor(health)
+    end)
+
+    player.CharacterAdded:Connect(function(newCharacter)
+        if ESP.Boxes[player] then
+            if ESP.Boxes[player].Box then ESP.Boxes[player].Box:Destroy() end
+            if ESP.Boxes[player].Billboard then ESP.Boxes[player].Billboard:Destroy() end
+            ESP.Boxes[player] = nil
+        end
+        if ESP.Enabled then
+            createESP(player)
+        end
+    end)
+end
+
+local function updateESPColor()
+    for player, esp in pairs(ESP.Boxes) do
+        if esp.Box then
+            esp.Box.Color3 = ESP.Color
+        end
+        if esp.Billboard then
+            esp.Billboard.Name.TextColor3 = ESP.Color
+            esp.Billboard.Health.TextColor3 = ESP.Color
+        end
+    end
+end
+
+local function toggleESP(enabled)
+    ESP.Enabled = enabled
+    if enabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if player.Character then
+                    createESP(player)
+                end
+                player.CharacterAdded:Connect(function()
+                    if ESP.Enabled then
+                        createESP(player)
+                    end
+                end)
+            end
+        end
+    else
+        for player, esp in pairs(ESP.Boxes) do
+            if esp.Box then esp.Box:Destroy() end
+            if esp.Billboard then esp.Billboard:Destroy() end
+        end
+        ESP.Boxes = {}
+    end
+end
+
+local function toggleChams(enabled)
+    Chams.Enabled = enabled
+    if enabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if player.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.FillColor = Color3.new(0, 0, 0)
+                    highlight.FillTransparency = 1
+                    highlight.OutlineColor = Chams.Color
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = player.Character
+                    Chams.Highlights[player] = highlight
+                end
+                player.CharacterAdded:Connect(function(character)
+                    if Chams.Enabled then
+                        local highlight = Instance.new("Highlight")
+                        highlight.FillColor = Color3.new(0, 0, 0)
+                        highlight.FillTransparency = 1
+                        highlight.OutlineColor = Chams.Color
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = character
+                        Chams.Highlights[player] = highlight
+                    end
+                end)
+            end
+        end
+    else
+        for player, highlight in pairs(Chams.Highlights) do
+            highlight:Destroy()
+        end
+        Chams.Highlights = {}
+    end
+end
+
+local function updateChamsColor()
+    for player, highlight in pairs(Chams.Highlights) do
+        highlight.OutlineColor = Chams.Color
+    end
+end
+
+local function toggleHitbox(enabled)
+    Hitbox.Enabled = enabled
+    if enabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    Hitbox.OriginalSizes[player] = head.Size
+                    head.Size = head.Size * Hitbox.Size
+                end
+            end
+        end
+    else
+        for player, originalSize in pairs(Hitbox.OriginalSizes) do
+            if player and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    head.Size = originalSize
+                end
+            end
+        end
+        Hitbox.OriginalSizes = {}
+    end
+end
+
+local function updateHitboxSize()
+    if Hitbox.Enabled then
+        toggleHitbox(false)
+        Hitbox.Size = tonumber(HitboxSizeBox.Text) or 2.0
+        toggleHitbox(true)
+    else
+        Hitbox.Size = tonumber(HitboxSizeBox.Text) or 2.0
+    end
+end
+
+-- Player teleport function
+local function teleportToPlayer(player)
+    if not player or not player.Character then 
+        StatusLabel.Text = "Player character not found"
+        return 
+    end
+    
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then 
+        StatusLabel.Text = "Your character not ready"
+        return 
+    end
+    
+    local rootPart = player.Character:FindFirstChild("HumanoidRootPart") or player.Character:FindFirstChild("Head")
+    if not rootPart then 
+        StatusLabel.Text = "Target has no root part"
+        return 
+    end
+    
+    humanoid:MoveTo(rootPart.Position)
+    StatusLabel.Text = "Walking to "..player.Name
+end
+
+-- Player list functionality
+local function updatePlayerList(searchText)
+    for _, child in ipairs(PlayerList:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
+    searchText = searchText:lower()
+    local players = Players:GetPlayers()
+    table.sort(players, function(a, b) return a.Name:lower() < b.Name:lower() end)
+
+    local count = 0
+    for _, player in ipairs(players) do
+        if player ~= LocalPlayer and (searchText == "" or player.Name:lower():find(searchText) or player.DisplayName:lower():find(searchText)) then
+            local playerFrame = Instance.new("Frame")
+            playerFrame.Size = UDim2.new(1, 0, 0, 40)
+            playerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+            playerFrame.Parent = PlayerList
+
+            local playerCorner = Instance.new("UICorner")
+            playerCorner.CornerRadius = UDim.new(0, 6)
+            playerCorner.Parent = playerFrame
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Text = player.DisplayName.." (@"..player.Name..")"
+            nameLabel.Size = UDim2.new(0.6, -10, 1, 0)
+            nameLabel.Position = UDim2.new(0, 10, 0, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+            nameLabel.Font = Enum.Font.Gotham
+            nameLabel.TextSize = 14
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = playerFrame
+
+            local teleportButton = Instance.new("TextButton")
+            teleportButton.Text = "GOTO"
+            teleportButton.Size = UDim2.new(0.4, -10, 0.7, 0)
+            teleportButton.Position = UDim2.new(0.6, 10, 0.15, 0)
+            teleportButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+            teleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            teleportButton.Font = Enum.Font.GothamSemibold
+            teleportButton.TextSize = 14
+            teleportButton.Parent = playerFrame
+
+            local buttonCorner = Instance.new("UICorner")
+            buttonCorner.CornerRadius = UDim.new(0, 4)
+            buttonCorner.Parent = teleportButton
+
+            teleportButton.MouseButton1Click:Connect(function()
+                teleportToPlayer(player)
+            end)
+
+            count = count + 1
+        end
+    end
+
+    PlayerList.CanvasSize = UDim2.new(0, 0, 0, count * 45)
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    updatePlayerList(SearchBox.Text)
+end)
+
+-- Toggle functionality
+local function createToggleHandler(toggleButton, toggleKnob, callback)
+    local enabled = false
+    
+    local function updateToggle()
+        enabled = not enabled
+        local newPos = enabled and UDim2.new(1, -25, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local newColor = enabled and Color3.fromRGB(60, 200, 60) or Color3.fromRGB(200, 60, 60)
+        
+        TweenService:Create(toggleKnob, TweenInfo.new(0.2), {Position = newPos}):Play()
+        TweenService:Create(toggleKnob, TweenInfo.new(0.2), {BackgroundColor3 = newColor}):Play()
+        
+        if callback then
+            callback(enabled)
+        end
+    end
+    
+    toggleButton.MouseButton1Click:Connect(updateToggle)
+    
+    return {
+        SetState = function(newState)
+            if enabled ~= newState then
+                updateToggle()
+            end
+        end,
+        GetState = function()
+            return enabled
+        end
+    }
+end
+
+-- Initialize toggles
+local ESPToggleControl = createToggleHandler(ESPToggle, ESPToggleKnob, function(enabled)
+    toggleESP(enabled)
+    StatusLabel.Text = enabled and "ESP Enabled" or "ESP Disabled"
+end)
+
+local ChamsToggleControl = createToggleHandler(ChamsToggle, ChamsToggleKnob, function(enabled)
+    toggleChams(enabled)
+    StatusLabel.Text = enabled and "Chams Enabled" or "Chams Disabled"
+end)
+
+local HitboxToggleControl = createToggleHandler(HitboxToggle, HitboxToggleKnob, function(enabled)
+    toggleHitbox(enabled)
+    StatusLabel.Text = enabled and "Hitbox Extender Enabled" or "Hitbox Extender Disabled"
+end)
+
+-- Color picker functionality
+local function createColorPicker(colorBox, defaultColor, callback)
+    local colorWheel = Instance.new("Frame")
+    colorWheel.Size = UDim2.new(0, 200, 0, 200)
+    colorWheel.Position = UDim2.new(0.5, -100, 0.5, -100)
+    colorWheel.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    colorWheel.BorderSizePixel = 0
+    colorWheel.ZIndex = 10
+    colorWheel.Visible = false
+    colorWheel.Parent = ESPUI
+
+    local wheelCorner = Instance.new("UICorner")
+    wheelCorner.CornerRadius = UDim.new(0, 8)
+    wheelCorner.Parent = colorWheel
+
+    local wheelStroke = Instance.new("UIStroke")
+    wheelStroke.Color = Color3.fromRGB(80, 80, 90)
+    wheelStroke.Thickness = 2
+    wheelStroke.Parent = colorWheel
+
+    local colorImage = Instance.new("ImageLabel")
+    colorImage.Size = UDim2.new(0, 180, 0, 180)
+    colorImage.Position = UDim2.new(0.5, -90, 0.5, -90)
+    colorImage.Image = "rbxassetid://14204231522" -- Color wheel image
+    colorImage.BackgroundTransparency = 1
+    colorImage.Parent = colorWheel
+
+    local brightnessSlider = Instance.new("Frame")
+    brightnessSlider.Size = UDim2.new(0, 20, 0, 180)
+    brightnessSlider.Position = UDim2.new(1, 5, 0.5, -90)
+    brightnessSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    brightnessSlider.Parent = colorWheel
+
+    local brightnessCorner = Instance.new("UICorner")
+    brightnessCorner.CornerRadius = UDim.new(0, 4)
+    brightnessCorner.Parent = brightnessSlider
+
+    local brightnessGradient = Instance.new("UIGradient")
+    brightnessGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+        ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
+    })
+    brightnessGradient.Rotation = 90
+    brightnessGradient.Parent = brightnessSlider
+
+    local brightnessSelector = Instance.new("Frame")
+    brightnessSelector.Size = UDim2.new(1, 4, 0, 8)
+    brightnessSelector.Position = UDim2.new(0, -2, 0.5, -4)
+    brightnessSelector.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    brightnessSelector.BorderSizePixel = 0
+    brightnessSelector.Parent = brightnessSlider
+
+    local selectorCorner = Instance.new("UICorner")
+    selectorCorner.CornerRadius = UDim.new(0, 2)
+    selectorCorner.Parent = brightnessSelector
+
+    local selectedColor = Instance.new("Frame")
+    selectedColor.Size = UDim2.new(0, 40, 0, 40)
+    selectedColor.Position = UDim2.new(0.5, -20, 1, 10)
+    selectedColor.BackgroundColor3 = defaultColor
+    selectedColor.Parent = colorWheel
+
+    local selectedCorner = Instance.new("UICorner")
+    selectedCorner.CornerRadius = UDim.new(0, 4)
+    selectedCorner.Parent = selectedColor
+
+    local closeButton = Instance.new("TextButton")
+    closeButton.Text = "✓"
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -30, 0, 0)
+    closeButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.Parent = colorWheel
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 4)
+    closeCorner.Parent = closeButton
+
+    -- Color selection logic
+    local selectingColor = false
+    local selectingBrightness = false
+    local hue, saturation = 0, 1
+    local brightness = 1
+
+    local function updateColor()
+        local hsv = Color3.fromHSV(hue, saturation, brightness)
+        selectedColor.BackgroundColor3 = hsv
+        colorBox.BackgroundColor3 = hsv
+        if callback then
+            callback(hsv)
+        end
+    end
+
+    colorImage.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            selectingColor = true
+            local x = (input.Position.X - colorImage.AbsolutePosition.X) / colorImage.AbsoluteSize.X
+            local y = (input.Position.Y - colorImage.AbsolutePosition.Y) / colorImage.AbsoluteSize.Y
+            
+            hue = math.atan2(y - 0.5, x - 0.5) / (math.pi * 2)
+            if hue < 0 then hue = hue + 1 end
+            saturation = math.clamp(math.sqrt((x - 0.5)^2 + (y - 0.5)^2) * 2, 0, 1)
+            
+            updateColor()
+        end
+    end)
+
+    colorImage.InputEnded:Connect(function()
+        selectingColor = false
+    end)
+
+    colorImage.InputChanged:Connect(function(input)
+        if selectingColor and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local x = (input.Position.X - colorImage.AbsolutePosition.X) / colorImage.AbsoluteSize.X
+            local y = (input.Position.Y - colorImage.AbsolutePosition.Y) / colorImage.AbsoluteSize.Y
+            
+            hue = math.atan2(y - 0.5, x - 0.5) / (math.pi * 2)
+            if hue < 0 then hue = hue + 1 end
+            saturation = math.clamp(math.sqrt((x - 0.5)^2 + (y - 0.5)^2) * 2, 0, 1)
+            
+            updateColor()
+        end
+    end)
+
+    brightnessSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            selectingBrightness = true
+            brightness = 1 - ((input.Position.Y - brightnessSlider.AbsolutePosition.Y) / brightnessSlider.AbsoluteSize.Y)
+            brightnessSelector.Position = UDim2.new(0, -2, brightness, -4)
+            updateColor()
+        end
+    end)
+
+    brightnessSlider.InputEnded:Connect(function()
+        selectingBrightness = false
+    end)
+
+    brightnessSlider.InputChanged:Connect(function(input)
+        if selectingBrightness and input.UserInputType == Enum.UserInputType.MouseMovement then
+            brightness = 1 - ((input.Position.Y - brightnessSlider.AbsolutePosition.Y) / brightnessSlider.AbsoluteSize.Y)
+            brightnessSelector.Position = UDim2.new(0, -2, brightness, -4)
+            updateColor()
+        end
+    end)
+
+    closeButton.MouseButton1Click:Connect(function()
+        colorWheel.Visible = false
+    end)
+
+    colorBox.MouseButton1Click:Connect(function()
+        colorWheel.Visible = not colorWheel.Visible
+    end)
+
+    return {
+        SetColor = function(color)
+            selectedColor.BackgroundColor3 = color
+            colorBox.BackgroundColor3 = color
+            hue, saturation, brightness = Color3.toHSV(color)
+            brightnessSelector.Position = UDim2.new(0, -2, brightness, -4)
+        end
+    }
+end
+
+-- Initialize color pickers
+local ESPColorControl = createColorPicker(ESPColorBox, Color3.fromRGB(255, 0, 0), function(color)
+    ESP.Color = color
+    updateESPColor()
+    StatusLabel.Text = "ESP Color Updated"
+end)
+
+local ChamsColorControl = createColorPicker(ChamsColorBox, Color3.fromRGB(0, 150, 255), function(color)
+    Chams.Color = color
+    updateChamsColor()
+    StatusLabel.Text = "Chams Color Updated"
+end)
+
+-- Hitbox size update
+HitboxSizeBox.FocusLost:Connect(function()
+    local value = tonumber(HitboxSizeBox.Text)
+    if value and value >= 1 and value <= 10 then
+        Hitbox.Size = value
+        updateHitboxSize()
+        StatusLabel.Text = "Hitbox Size: "..string.format("%.1f", value).."x"
+    else
+        HitboxSizeBox.Text = "2.0"
+        StatusLabel.Text = "Invalid size (1.0-10.0)"
+    end
+end)
+
+-- Initialize player list
+updatePlayerList("")
+
+-- Connect player added/removed events
+Players.PlayerAdded:Connect(function(player)
+    updatePlayerList(SearchBox.Text)
+    if ESP.Enabled then createESP(player) end
+    if Chams.Enabled then 
+        player.CharacterAdded:Connect(function(character)
+            if Chams.Enabled then
+                local highlight = Instance.new("Highlight")
+                highlight.FillColor = Color3.new(0, 0, 0)
+                highlight.FillTransparency = 1
+                highlight.OutlineColor = Chams.Color
+                highlight.OutlineTransparency = 0
+                highlight.Parent = character
+                Chams.Highlights[player] = highlight
+            end
+        end)
+    end
+    if Hitbox.Enabled and player.Character then
+        local head = player.Character:FindFirstChild("Head")
+        if head then
+            Hitbox.OriginalSizes[player] = head.Size
+            head.Size = head.Size * Hitbox.Size
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    updatePlayerList(SearchBox.Text)
+    if ESP.Boxes[player] then
+        if ESP.Boxes[player].Box then ESP.Boxes[player].Box:Destroy() end
+        if ESP.Boxes[player].Billboard then ESP.Boxes[player].Billboard:Destroy() end
+        ESP.Boxes[player] = nil
+    end
+    if Chams.Highlights[player] then
+        Chams.Highlights[player]:Destroy()
+        Chams.Highlights[player] = nil
+    end
+    if Hitbox.OriginalSizes[player] then
+        Hitbox.OriginalSizes[player] = nil
+    end
+end)
+
+-- Initialize with ESP off
+ESPToggleControl.SetState(false)
+ChamsToggleControl.SetState(false)
+HitboxToggleControl.SetState(false)
+
+-- Set default colors
+ESPColorControl.SetColor(Color3.fromRGB(255, 0, 0))
+ChamsColorControl.SetColor(Color3.fromRGB(0, 150, 255))
+HitboxSizeBox.Text = "2.0"
